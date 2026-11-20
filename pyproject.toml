@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ros2-doctor-mcp"
+version = "0.1.0"
+description = "MCP server that diagnoses why a ROS 2 robot is not moving (Nav2 and ros2_control arms). Read-only."
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+dependencies = ["mcp>=1.2"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+ros2-doctor-mcp = "ros2_doctor_mcp.server:main"
+
+[tool.setuptools]
+packages = ["ros2_doctor_mcp"]
