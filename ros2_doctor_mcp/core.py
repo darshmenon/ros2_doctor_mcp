@@ -86,11 +86,12 @@ def graph(domain_id=None, runner=subprocess.run):
     try:
         nodes = _run_text(["ros2", "node", "list"], env, runner)
         topics = _run_text(["ros2", "topic", "list", "-t"], env, runner)
+        services = _run_text(["ros2", "service", "list"], env, runner)
     except FileNotFoundError:
         return {"error": "ros2 not found: source your ROS 2 install first"}
     except subprocess.TimeoutExpired:
         return {"error": "ros2 did not answer in time"}
-    return {"domain_id": env.get("ROS_DOMAIN_ID"), "nodes": nodes, "topics": topics,
+    return {"domain_id": env.get("ROS_DOMAIN_ID"), "nodes": nodes, "topics": topics, "services": services,
             "hint": None if nodes else "no nodes visible: check ROS_DOMAIN_ID, ROS_LOCALHOST_ONLY and the RMW"}
 
 
@@ -202,12 +203,13 @@ def score_map(map_yaml, truth_yaml, align=False, runner=subprocess.run):
 
 
 # ---------- combined: detect the stacks on a domain and run every doctor that applies ----------
-def detect(nodes):
-    """Which doctors apply, from the node names on the graph."""
+def detect(nodes, services=()):
+    """Which doctors apply, from the node and service names on the graph. The controller manager may live in a
+    node with another name, so its list_controllers service counts too."""
     low = [n.lower() for n in nodes]
     has = lambda *keys: any(k in n for n in low for k in keys)   # noqa: E731
     return {"nav2": has("controller_server", "bt_navigator", "planner_server"),
-            "arm": has("controller_manager"),
+            "arm": has("controller_manager") or any(s.endswith("/controller_manager/list_controllers") for s in services),
             "slam": has("slam_toolbox", "cartographer", "rtabmap", "orb_slam"),
             "moveit": has("move_group")}
 
@@ -218,7 +220,7 @@ def diagnose_all(ns="", seconds=8.0, domain_id=None, runner=subprocess.run):
     g = graph(domain_id=domain_id, runner=runner)
     if "error" in g:
         return {"ok": None, "error": g["error"]}
-    found = detect(g["nodes"])
+    found = detect(g["nodes"], g.get("services", []))
     kinds = [k for k in ("nav2", "arm", "slam") if found[k]]
     if not kinds:
         return {"ok": None, "stacks": [], "nodes_seen": len(g["nodes"]),

@@ -1,0 +1,27 @@
+=== frame: healthy
+you   > The UR3 on domain 78 - is it OK to run a pick and place?
+tool  > diagnose_robot(domain_id=78)
+{
+  "ok": true,
+  "stacks": ["arm", "moveit"],
+  "summary": "0 error(s), 0 warning(s) across arm",
+  "findings": []
+}
+agent > Yes. A ros2_control arm and MoveIt are up and nothing is wrong.
+=== frame: broken
+you   > Now it won't move. Why?
+tool  > diagnose_robot(domain_id=78)
+{
+  "ok": false,
+  "stacks": ["arm", "moveit"],
+  "summary": "2 error(s), 0 warning(s) across arm",
+  "findings": [
+    {"level": "ERROR", "code": "CTRL_INACTIVE", "source": "arm",
+     "msg": "controller arm_controller (joint_trajectory_controller/
+             JointTrajectoryController) is inactive, not active"},
+    {"level": "ERROR", "code": "NO_ACTIVE_ARM_CTRL", "source": "arm",
+     "msg": "no arm controller is active, so nothing can move the arm"}
+  ]
+}
+agent > arm_controller is inactive, so nothing can move the arm.
+        Fix: ros2 control set_controller_state arm_controller active

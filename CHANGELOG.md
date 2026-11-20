@@ -1,6 +1,11 @@
 # Changelog
 
 ## Unreleased
+- Docker image (ROS 2 Humble, nav2_doctor, armdoc, slam_doctor built in). Tested end to end over MCP stdio against a fake arm + MoveIt on the host: reads healthy. Needed a UDP-only Fast DDS profile (baked in): with the default shared memory the container discovered the robot but received no data.
+- Fix: depend on `mcp>=1.2,<2`. mcp 2.x renamed `FastMCP`, so a fresh `pip install` pulled a version the server could not import. Found by the Docker build; a test now imports the server and checks all 11 tools register.
+- Fix: the Docker image upgrades pip and setuptools first; the stock ones installed an empty `UNKNOWN` package from `pyproject.toml`.
+- Fix: `diagnose_robot` also detects an arm from the `controller_manager/list_controllers` service, not only a node named `controller_manager`. `ros_graph` now lists services.
+- Demo GIF (real `diagnose_robot` results from a UR3 + MoveIt sim). Release workflow with a PyPI job that stays skipped until the repository variable `PUBLISH_PYPI` is `true`. The package builds and passes `twine check`.
 - New `diagnose_robot`: lists the graph, detects Nav2, ros2_control arm, MoveIt and SLAM, runs each applicable doctor in parallel and merges the findings (errors first, tagged by source). Run through MCP on a live UR3 + MoveIt Gazebo sim: healthy reads healthy (stacks arm, moveit); with the arm controller deactivated it returns `CTRL_INACTIVE` and `NO_ACTIVE_ARM_CTRL`. Only the arm path was run live; the Nav2 and SLAM branches of the combined tool are unit-tested.
 - Live check of `--moveit` on that sim: `MOVEIT_CTRL_MISMATCH` fired for a wrong controller name set on move_group and cleared when restored.
 - New `check_reach` (reachlens; run through MCP on a UR3 pose) and `score_map` (nav_explore_eval; run through MCP on a map scored against itself, 100% as expected).

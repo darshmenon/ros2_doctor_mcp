@@ -9,7 +9,7 @@ description = "MCP server that diagnoses why a ROS 2 robot is not moving (Nav2 a
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
-dependencies = ["mcp>=1.2"]
+dependencies = ["mcp>=1.2,<2"]
 
 [project.optional-dependencies]
 test = ["pytest"]

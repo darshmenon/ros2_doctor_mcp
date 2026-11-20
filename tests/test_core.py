@@ -129,12 +129,14 @@ def test_detect_picks_doctors_from_node_names():
     assert core.detect(["/foo"]) == {"nav2": False, "arm": False, "slam": False, "moveit": False}
 
 
-def make_runner(nodes, nav2_findings=(), arm_findings=()):
+def make_runner(nodes, nav2_findings=(), arm_findings=(), services=()):
     def runner(args, **k):
         if args[:2] == ["ros2", "node"]:
             return SimpleNamespace(stdout="\n".join(nodes), stderr="", returncode=0)
         if args[:2] == ["ros2", "topic"]:
             return SimpleNamespace(stdout="/tf [x]", stderr="", returncode=0)
+        if args[:2] == ["ros2", "service"]:
+            return SimpleNamespace(stdout="\n".join(services), stderr="", returncode=0)
         cmd = " ".join(args)
         doc = list(arm_findings) if "armdoc" in cmd else list(nav2_findings)
         return SimpleNamespace(stdout=json.dumps(doc), stderr="", returncode=0)
@@ -156,3 +158,20 @@ def test_diagnose_all_merges_and_tags_sources(monkeypatch):
 def test_diagnose_all_with_nothing_found_explains_why():
     r = core.diagnose_all(runner=make_runner(["/talker"]))
     assert r["ok"] is None and "domain_id" in r["error"] and r["stacks"] == []
+
+
+def test_server_imports_and_registers_every_tool():
+    """Catches an incompatible mcp release (2.x renamed FastMCP) before users do."""
+    import asyncio
+    from ros2_doctor_mcp import server
+    names = {t.name for t in asyncio.run(server.mcp.list_tools())}
+    assert {"diagnose_robot", "diagnose_nav2", "diagnose_arm", "diagnose_slam", "ros_graph"} <= names
+    assert len(names) == 11
+
+
+def test_arm_is_detected_from_the_controller_manager_service_when_the_node_is_named_differently():
+    assert core.detect(["/fake_arm"], ["/controller_manager/list_controllers"])["arm"] is True
+    assert core.detect(["/fake_arm"], ["/ur3/controller_manager/list_controllers"])["arm"] is True
+    assert core.detect(["/fake_arm"], [])["arm"] is False
+    r = core.diagnose_all(runner=make_runner(["/fake_arm"], arm_findings=[], services=["/controller_manager/list_controllers"]))
+    assert r["stacks"] == ["arm"] and r["ok"] is True

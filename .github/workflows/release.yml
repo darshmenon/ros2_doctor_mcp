@@ -1,0 +1,35 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: tag matches package version
+        run: test "v$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)" = "${GITHUB_REF_NAME}"
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.10'}
+      - run: pip install build && python -m build
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          body_path: CHANGELOG.md
+  pypi:
+    # Skipped until you enable it: add a trusted publisher on pypi.org (project ros2-doctor-mcp, owner darshmenon,
+    # repo ros2_doctor_mcp, workflow release.yml, environment pypi), then set the repository variable PUBLISH_PYPI=true.
+    if: ${{ vars.PUBLISH_PYPI == 'true' }}
+    needs: release
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.10'}
+      - run: pip install build && python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1

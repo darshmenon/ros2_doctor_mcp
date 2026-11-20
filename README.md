@@ -5,6 +5,10 @@
 
 An MCP server that answers **"why isn't my robot moving?"** for ROS 2. Most ROS MCP servers *control* a robot (publish, call services, send goals). This one only *diagnoses*: it is read-only, never publishes, and never changes anything, so it is safe to point an agent at a running robot.
 
+![diagnose_robot on a UR3 with MoveIt: healthy, then the arm controller deactivated](docs/demo.gif)
+
+*The tool results are real output captured through MCP on a UR3 + MoveIt Gazebo sim (healthy, then `arm_controller` deactivated). The question and the agent's reply are illustrative. Source: `docs/demo_raw.txt`, `docs/make_demo_gif.py`.*
+
 It wraps existing read-only doctors and returns one normalised result, `{ok, findings: [{level, code, msg, hint}]}`:
 
 | Tool | Wraps | Answers |
@@ -25,12 +29,23 @@ Every tool takes `ns` (namespace), `seconds` (watch time, clamped to 1 to 120) a
 
 ## Install
 
+**Docker** (ROS 2 Humble and the doctors are built in; nothing else to install):
+
+```bash
+docker build -t ros2-doctor-mcp https://github.com/darshmenon/ros2_doctor_mcp.git
+claude mcp add ros2-doctor -- docker run -i --rm --net=host -e ROS_DOMAIN_ID=0 ros2-doctor-mcp
+```
+
+`--net=host` lets the container see robots on this machine; set `ROS_DOMAIN_ID` to match yours (or pass `domain_id` in a tool call). The image uses UDP-only Fast DDS, because shared memory does not work between a container and the host (discovery succeeds but no data arrives).
+
+**From source** (you already have ROS 2):
+
 ```bash
 # a ROS 2 install with the doctors you want
 cd ~/ros2_ws/src && git clone https://github.com/darshmenon/nav2_doctor.git && git clone https://github.com/darshmenon/armdoc.git
 cd .. && colcon build --packages-select nav2_doctor armdoc
 
-pip install git+https://github.com/darshmenon/ros2_doctor_mcp.git
+pip install git+https://github.com/darshmenon/ros2_doctor_mcp.git     # or `pip install ros2-doctor-mcp` once it is on PyPI
 ```
 
 Run the server from a shell where ROS 2 and your workspace are sourced.
@@ -81,6 +96,6 @@ The unit tests stub the subprocess, so they need neither ROS nor a robot. The Na
 - fault injectors (nav2_fault_inject, armchaos) are deliberately not exposed: this server stays read-only
 - merged node logs tied to a finding
 - multi-robot: one call per namespace
-- a PyPI release
+- the first PyPI release (the package builds and passes `twine check`; publishing waits on a trusted publisher, see `.github/workflows/release.yml`)
 
 License: Apache-2.0.
