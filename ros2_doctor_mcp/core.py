@@ -1,6 +1,7 @@
 """Run the read-only robot doctors as subprocesses and normalise their JSON into one shape."""
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -153,3 +154,48 @@ def analyze_force(path, cols=None, runner=subprocess.run):
         findings.append({"level": "WARN", "code": "NOT_INSERTED", "hint": "check the alignment offset and insertion depth",
                          "msg": "the peg never reached the insertion depth"})
     return {"ok": not doc.get("jammed"), "findings": findings, "metrics": {k: doc[k] for k in FORCE_KEYS if k in doc}}
+
+
+# ---------- reachability (reachlens) ----------
+def _tool(env, exe, module_cmd):
+    if os.environ.get(env):
+        return shlex.split(os.environ[env])
+    return [exe] if shutil.which(exe) else module_cmd
+
+
+def check_reach(x, y, z, arm="ur3", tool_length=0.0, runner=subprocess.run):
+    """Can a UR arm reach a tool-down pose? IK in MuJoCo through reachlens. Offline, no robot needed."""
+    args = _tool("ROS2_DOCTOR_REACHLENS_CMD", "reachlens", ["python3", "-m", "reachlens"]) + [
+        "check", "--arm", arm, "--tool-length", str(float(tool_length)), "--pose", str(float(x)), str(float(y)), str(float(z))]
+    try:
+        p = runner(args, capture_output=True, text=True, timeout=120)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return {"ok": None, "error": "reachlens did not run (pip install reachlens, needs MuJoCo)"}
+    m = re.search(r"(UN)?REACHABLE\s+pos_err=([\d.]+) mm\s+ori_err=([\d.]+) deg", p.stdout)
+    if not m:
+        return {"ok": None, "error": "could not read reachlens output", "stderr": p.stderr[-300:]}
+    res = {"ok": m.group(1) is None, "reachable": m.group(1) is None, "pos_err_mm": float(m.group(2)),
+           "ori_err_deg": float(m.group(3))}
+    extra = re.search(r"manipulability=([\d.eE+-]+)\s+cond=([\d.eE+-]+)\s+limit_margin=([\d.eE+-]+)", p.stdout)
+    if extra:
+        res.update(manipulability=float(extra.group(1)), cond=float(extra.group(2)), limit_margin=float(extra.group(3)))
+    q = re.search(r"q = \[([^\]]*)\]", p.stdout)
+    if q and res["reachable"]:
+        res["joint_angles_rad"] = [float(v) for v in q.group(1).split(",")]
+    return res
+
+
+# ---------- map scoring (nav_explore_eval) ----------
+def score_map(map_yaml, truth_yaml, align=False, runner=subprocess.run):
+    """Score a saved occupancy map against a ground-truth map: coverage, wall recall/precision, false-free area."""
+    for f in (map_yaml, truth_yaml):
+        if not os.path.exists(f):
+            return {"ok": None, "error": f"no such file: {f}"}
+    args = _tool("ROS2_DOCTOR_NAVEVAL_CMD", "nav_explore_eval", ["python3", "-m", "nav_explore_eval.cli"]) + [
+        "score", map_yaml, truth_yaml, "--json"] + (["--align"] if align else [])
+    try:
+        p = runner(args, capture_output=True, text=True, timeout=300)
+        doc = json.loads(p.stdout[p.stdout.index("{"):])
+    except (FileNotFoundError, ValueError, subprocess.TimeoutExpired):
+        return {"ok": None, "error": "nav_explore_eval failed or is not installed"}
+    return {"ok": True, "metrics": doc}

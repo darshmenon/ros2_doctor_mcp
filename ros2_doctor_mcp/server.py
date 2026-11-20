@@ -47,6 +47,20 @@ def analyze_force(path: str, cols: str | None = None) -> dict:
 
 
 @mcp.tool()
+def check_reach(x: float, y: float, z: float, arm: str = "ur3", tool_length: float = 0.0) -> dict:
+    """Can a UR arm (ur3 or ur5e) reach a tool-down pose at x, y, z metres in the base frame? Returns reachable,
+    the IK error, manipulability and joint-limit margin. Offline, no robot needed (MuJoCo IK via reachlens)."""
+    return core.check_reach(x, y, z, arm=arm, tool_length=tool_length)
+
+
+@mcp.tool()
+def score_map(map_yaml: str, truth_yaml: str, align: bool = False) -> dict:
+    """Score a saved occupancy map (map_saver .yaml) against a ground-truth map: coverage, wall recall and
+    precision, false-free area. align=true searches for the best translation first. Offline (nav_explore_eval)."""
+    return core.score_map(map_yaml, truth_yaml, align=align)
+
+
+@mcp.tool()
 def ros_graph(domain_id: int | None = None) -> dict:
     """List the nodes and topics visible on a ROS domain (read-only). Use it first when a doctor reports
     that nothing is visible, to find the right domain or namespace."""

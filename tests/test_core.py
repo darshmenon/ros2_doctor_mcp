@@ -104,3 +104,20 @@ def test_errors_come_first():
     doc = [{"level": "WARN", "code": "A", "msg": ""}, {"level": "ERROR", "code": "B", "msg": ""},
            {"level": "WARN", "code": "C", "msg": ""}]
     assert [f["code"] for f in core.parse("arm", json.dumps(doc))["findings"]] == ["B", "A", "C"]
+
+
+def test_check_reach_parses_reachable_and_unreachable():
+    ok = "REACHABLE  pos_err=0.03 mm  ori_err=0.00 deg\nmanipulability=0.0148  cond=13.1  limit_margin=0.41\nq = [-0.04, -1.5, 1.8, -1.9, -1.57, -1.6]\n"
+    r = core.check_reach(0.3, 0.1, 0.25, runner=fake(ok))
+    assert r["ok"] is True and r["cond"] == 13.1 and len(r["joint_angles_rad"]) == 6
+    bad = core.check_reach(1.5, 0, 0.2, runner=fake("UNREACHABLE  pos_err=764.27 mm  ori_err=180.00 deg\n"))
+    assert bad["ok"] is False and bad["pos_err_mm"] == 764.27 and "joint_angles_rad" not in bad
+    assert core.check_reach(0, 0, 0, runner=fake("garbage"))["ok"] is None
+
+
+def test_score_map_reads_json_and_checks_files(tmp_path):
+    assert "no such file" in core.score_map(str(tmp_path / "a.yaml"), str(tmp_path / "b.yaml"))["error"]
+    a = tmp_path / "a.yaml"
+    a.write_text("x")
+    r = core.score_map(str(a), str(a), align=True, runner=fake('log\n{"coverage_pct": 91.5, "wall_f1_pct": 80.0}'))
+    assert r["ok"] is True and r["metrics"]["coverage_pct"] == 91.5

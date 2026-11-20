@@ -15,6 +15,8 @@ It wraps existing read-only doctors and returns one normalised result, `{ok, fin
 | `arm_ready` | `armdoc --ready` | pre-flight for a ros2_control arm |
 | `diagnose_slam` | [slam_doctor](https://github.com/darshmenon/slam_doctor) | SLAM health: map stalls, lost tracking, odometry drift, no loop closures (slam_toolbox, Cartographer, RTAB-Map, ORB-SLAM3) |
 | `analyze_force` | [forcetrace](https://github.com/darshmenon/forcetrace) | offline: did a peg-in-hole or press run jam or insert, peak and steady force, time in contact |
+| `check_reach` | [reachlens](https://github.com/darshmenon/reachlens) | offline: can a UR3 or UR5e reach this tool-down pose? IK error, manipulability, joint-limit margin |
+| `score_map` | [nav_explore_eval](https://github.com/darshmenon/nav_explore_eval) | offline: coverage, wall recall and precision of a saved map against ground truth |
 | `ros_graph` | `ros2 node list`, `ros2 topic list -t` | what is visible on a domain; start here when a doctor says nothing is visible |
 | `analyze_trajectory` | [trajlens](https://github.com/darshmenon/trajlens) | offline: jerk spikes, limit violations, slow profiles in a recorded trajectory (CSV, JSON, rosbag2); no robot needed |
 
@@ -55,6 +57,10 @@ ROS2_DOCTOR_NAV2_CMD="python3 -m nav2_doctor.doctor"
 ROS2_DOCTOR_ARM_CMD="ros2 run armdoc armdoc"
 ```
 
+## Not included
+
+`nav2_fault_inject` and `armchaos` deliberately break a running robot, so they stay out of a read-only server. `ctrlbench` is a long benchmark, not a quick question.
+
 ## Safety
 
 - The wrapped doctors only subscribe to topics and query lifecycle or controller state.
@@ -71,7 +77,7 @@ The unit tests stub the subprocess, so they need neither ROS nor a robot. The Na
 
 ## Roadmap
 
-- reachlens and nav_explore_eval as extra tools
+- fault injectors (nav2_fault_inject, armchaos) are deliberately not exposed: this server stays read-only
 - merged node logs tied to a finding
 - multi-robot: one call per namespace
 - a PyPI release
