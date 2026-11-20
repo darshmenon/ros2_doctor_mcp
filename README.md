@@ -13,11 +13,12 @@ It wraps existing read-only doctors and returns one normalised result, `{ok, fin
 
 | Tool | Wraps | Answers |
 |---|---|---|
-| `diagnose_robot` | all of the below | **start here**: detects which stacks are on the domain (Nav2, an arm, MoveIt, SLAM), runs every doctor that applies in parallel, returns one merged verdict, errors first, each finding tagged with its source |
+| `diagnose_robot` | all of the below | **start here**: detects which stacks are on the domain (Nav2, an arm, MoveIt, SLAM, cameras), runs every doctor that applies in parallel, returns one merged verdict, errors first, each finding tagged with its source |
 | `diagnose_nav2` | [nav2_doctor](https://github.com/darshmenon/nav2_doctor) | stale TF, dead odom or scan, inactive Nav2 servers, no `cmd_vel`, flapping goals, no progress |
 | `nav2_ready` | `nav2_doctor --ready` | pre-flight: can this stack navigate right now? |
 | `diagnose_arm` | [armdoc](https://github.com/darshmenon/armdoc) | inactive controller, silent `/joint_states`, joint at a limit, stalled trajectory, missing `move_group` |
 | `arm_ready` | `armdoc --ready` | pre-flight for a ros2_control arm |
+| `diagnose_perception` | [percept_doctor](https://github.com/darshmenon/percept_doctor) | cameras, depth and point clouds: dead or stale streams, low rate, dark or frozen images, invalid depth, empty clouds, missing `camera_info` |
 | `diagnose_slam` | [slam_doctor](https://github.com/darshmenon/slam_doctor) | SLAM health: map stalls, lost tracking, odometry drift, no loop closures (slam_toolbox, Cartographer, RTAB-Map, ORB-SLAM3) |
 | `analyze_force` | [forcetrace](https://github.com/darshmenon/forcetrace) | offline: did a peg-in-hole or press run jam or insert, peak and steady force, time in contact |
 | `check_reach` | [reachlens](https://github.com/darshmenon/reachlens) | offline: can a UR3 or UR5e reach this tool-down pose? IK error, manipulability, joint-limit margin |

@@ -1,4 +1,4 @@
-# ros2-doctor-mcp with ROS 2 Humble and the doctors it wraps (nav2_doctor, armdoc, slam_doctor) built in.
+# ros2-doctor-mcp with ROS 2 Humble and the doctors it wraps (nav2_doctor, armdoc, slam_doctor, percept_doctor) built in.
 #   docker build -t ros2-doctor-mcp .
 #   docker run -i --rm --net=host -e ROS_DOMAIN_ID=0 ros2-doctor-mcp          # MCP server on stdio, sees robots on this machine
 # Claude Code:  claude mcp add ros2-doctor -- docker run -i --rm --net=host -e ROS_DOMAIN_ID=0 ros2-doctor-mcp
@@ -13,9 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /ws/src
 RUN git clone --depth 1 https://github.com/darshmenon/nav2_doctor.git \
  && git clone --depth 1 https://github.com/darshmenon/armdoc.git \
- && git clone --depth 1 https://github.com/darshmenon/slam_doctor.git
+ && git clone --depth 1 https://github.com/darshmenon/slam_doctor.git \
+ && git clone --depth 1 https://github.com/darshmenon/percept_doctor.git
 WORKDIR /ws
-RUN . /opt/ros/humble/setup.sh && colcon build --packages-select nav2_doctor armdoc slam_doctor
+RUN . /opt/ros/humble/setup.sh && colcon build --packages-select nav2_doctor armdoc slam_doctor percept_doctor
 
 COPY . /opt/ros2_doctor_mcp
 # the image's stock pip and setuptools cannot read pyproject.toml and would install an empty 'UNKNOWN' package

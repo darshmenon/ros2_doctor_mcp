@@ -10,6 +10,7 @@ DEFAULT_CMDS = {
     "nav2": ("ROS2_DOCTOR_NAV2_CMD", "nav2_doctor", ["ros2", "run", "nav2_doctor", "nav2_doctor"]),
     "arm": ("ROS2_DOCTOR_ARM_CMD", "armdoc", ["ros2", "run", "armdoc", "armdoc"]),
     "slam": ("ROS2_DOCTOR_SLAM_CMD", "slam_doctor", ["ros2", "run", "slam_doctor", "slam_doctor"]),
+    "perception": ("ROS2_DOCTOR_PERCEPTION_CMD", "percept_doctor", ["ros2", "run", "percept_doctor", "percept_doctor"]),
 }
 MAX_SECONDS = 120.0
 LEVEL_RANK = {"ERROR": 0, "WARN": 1, "INFO": 2, "OK": 3}
@@ -203,7 +204,7 @@ def score_map(map_yaml, truth_yaml, align=False, runner=subprocess.run):
 
 
 # ---------- combined: detect the stacks on a domain and run every doctor that applies ----------
-def detect(nodes, services=()):
+def detect(nodes, services=(), topics=()):
     """Which doctors apply, from the node and service names on the graph. The controller manager may live in a
     node with another name, so its list_controllers service counts too."""
     low = [n.lower() for n in nodes]
@@ -211,6 +212,7 @@ def detect(nodes, services=()):
     return {"nav2": has("controller_server", "bt_navigator", "planner_server"),
             "arm": has("controller_manager") or any(s.endswith("/controller_manager/list_controllers") for s in services),
             "slam": has("slam_toolbox", "cartographer", "rtabmap", "orb_slam"),
+            "perception": any("sensor_msgs/msg/Image" in t or "sensor_msgs/msg/PointCloud2" in t for t in topics),
             "moveit": has("move_group")}
 
 
@@ -220,11 +222,11 @@ def diagnose_all(ns="", seconds=8.0, domain_id=None, runner=subprocess.run):
     g = graph(domain_id=domain_id, runner=runner)
     if "error" in g:
         return {"ok": None, "error": g["error"]}
-    found = detect(g["nodes"], g.get("services", []))
-    kinds = [k for k in ("nav2", "arm", "slam") if found[k]]
+    found = detect(g["nodes"], g.get("services", []), g.get("topics", []))
+    kinds = [k for k in ("nav2", "arm", "slam", "perception") if found[k]]
     if not kinds:
         return {"ok": None, "stacks": [], "nodes_seen": len(g["nodes"]),
-                "error": "no Nav2, ros2_control arm or SLAM nodes found on this domain; "
+                "error": "no Nav2, ros2_control arm, SLAM or camera topics found on this domain; "
                          "check domain_id and ROS_LOCALHOST_ONLY (ros_graph lists what is visible)"}
 
     def one(kind):

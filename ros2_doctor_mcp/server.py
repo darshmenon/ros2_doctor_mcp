@@ -9,7 +9,7 @@ mcp = FastMCP("ros2-doctor")
 @mcp.tool()
 def diagnose_robot(ns: str = "", seconds: float = 8.0, domain_id: int | None = None) -> dict:
     """Start here. Looks at the ROS graph, detects which stacks are present (Nav2, a ros2_control or MoveIt
-    arm, SLAM), runs every doctor that applies in parallel and returns one merged verdict, errors first, each
+    arm, SLAM, cameras), runs every doctor that applies in parallel and returns one merged verdict, errors first, each
     finding tagged with its source. Good for mobile manipulators. Read-only."""
     return core.diagnose_all(ns=ns, seconds=seconds, domain_id=domain_id)
 
@@ -45,6 +45,14 @@ def diagnose_slam(ns: str = "", seconds: float = 8.0, domain_id: int | None = No
     """Watch a running SLAM (slam_toolbox, Cartographer, RTAB-Map, ORB-SLAM3) and report map stalls, lost
     tracking, odometry drift and missing loop closures. Read-only. Uses slam_doctor."""
     return core.run("slam", ns=ns, seconds=seconds, domain_id=domain_id)
+
+
+@mcp.tool()
+def diagnose_perception(ns: str = "", seconds: float = 8.0, domain_id: int | None = None) -> dict:
+    """Watch the cameras, depth sensors and point clouds on a running robot and report a dead or stale stream,
+    low rate, dark, blown-out or frozen images, mostly invalid depth, empty clouds and missing camera_info.
+    Read-only. Uses percept_doctor."""
+    return core.run("perception", ns=ns, seconds=seconds, domain_id=domain_id)
 
 
 @mcp.tool()

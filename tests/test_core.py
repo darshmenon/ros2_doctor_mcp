@@ -125,8 +125,8 @@ def test_score_map_reads_json_and_checks_files(tmp_path):
 
 def test_detect_picks_doctors_from_node_names():
     d = core.detect(["/controller_server", "/bt_navigator", "/controller_manager", "/move_group", "/slam_toolbox"])
-    assert d == {"nav2": True, "arm": True, "slam": True, "moveit": True}
-    assert core.detect(["/foo"]) == {"nav2": False, "arm": False, "slam": False, "moveit": False}
+    assert d == {"nav2": True, "arm": True, "slam": True, "perception": False, "moveit": True}
+    assert core.detect(["/foo"]) == {"nav2": False, "arm": False, "slam": False, "perception": False, "moveit": False}
 
 
 def make_runner(nodes, nav2_findings=(), arm_findings=(), services=()):
@@ -166,7 +166,7 @@ def test_server_imports_and_registers_every_tool():
     from ros2_doctor_mcp import server
     names = {t.name for t in asyncio.run(server.mcp.list_tools())}
     assert {"diagnose_robot", "diagnose_nav2", "diagnose_arm", "diagnose_slam", "ros_graph"} <= names
-    assert len(names) == 11
+    assert "diagnose_perception" in names and len(names) == 12
 
 
 def test_arm_is_detected_from_the_controller_manager_service_when_the_node_is_named_differently():
@@ -175,3 +175,22 @@ def test_arm_is_detected_from_the_controller_manager_service_when_the_node_is_na
     assert core.detect(["/fake_arm"], [])["arm"] is False
     r = core.diagnose_all(runner=make_runner(["/fake_arm"], arm_findings=[], services=["/controller_manager/list_controllers"]))
     assert r["stacks"] == ["arm"] and r["ok"] is True
+
+
+def test_perception_is_detected_from_sensor_topics_and_merged(monkeypatch):
+    topics = ["/cam/image_raw [sensor_msgs/msg/Image]", "/tf [tf2_msgs/msg/TFMessage]"]
+    assert core.detect(["/x"], [], topics)["perception"] is True
+    assert core.detect(["/x"], [], ["/scan [sensor_msgs/msg/LaserScan]"])["perception"] is False
+    monkeypatch.setenv("ROS2_DOCTOR_PERCEPTION_CMD", "percept_doctor")
+
+    def runner(args, **k):
+        if args[:2] == ["ros2", "node"]:
+            return SimpleNamespace(stdout="/x", stderr="", returncode=0)
+        if args[:2] == ["ros2", "topic"]:
+            return SimpleNamespace(stdout="\n".join(topics), stderr="", returncode=0)
+        if args[:2] == ["ros2", "service"]:
+            return SimpleNamespace(stdout="", stderr="", returncode=0)
+        doc = {"ok": False, "findings": [{"level": "ERROR", "code": "STREAM_STALE", "msg": "m"}]}
+        return SimpleNamespace(stdout=json.dumps(doc), stderr="", returncode=0)
+    r = core.diagnose_all(runner=runner)
+    assert r["stacks"] == ["perception"] and r["findings"][0]["source"] == "perception" and r["ok"] is False
