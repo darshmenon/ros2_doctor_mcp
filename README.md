@@ -9,6 +9,8 @@ An MCP server that answers **"why isn't my robot moving?"** for ROS 2. Most ROS 
 
 *The tool results are real output captured through MCP on a UR3 + MoveIt Gazebo sim (healthy, then `arm_controller` deactivated). The question and the agent's reply are illustrative. Source: `docs/demo_raw.txt`, `docs/make_demo_gif.py`.*
 
+![An agent calls ros2-doctor-mcp, which fans out to the read-only doctors](docs/architecture.png)
+
 It wraps existing read-only doctors and returns one normalised result, `{ok, findings: [{level, code, msg, hint}]}`:
 
 | Tool | Wraps | Answers |
@@ -27,6 +29,12 @@ It wraps existing read-only doctors and returns one normalised result, `{ok, fin
 | `analyze_trajectory` | [trajlens](https://github.com/darshmenon/trajlens) | offline: jerk spikes, limit violations, slow profiles in a recorded trajectory (CSV, JSON, rosbag2); no robot needed |
 
 Every tool takes `ns` (namespace), `seconds` (watch time, clamped to 1 to 120) and `domain_id` (sets `ROS_DOMAIN_ID` for that call only). Each finding carries a `hint` with a suggested next step.
+
+## What it has found
+
+![Findings from live Gazebo runs and from testing](docs/findings.png)
+
+Every row except `by design` comes from a run on a UR3 + MoveIt or Nav2 Gazebo sim, or from a bug the testing caught. Nothing here was run on real hardware.
 
 ## Install
 
