@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+## 0.1.0
 - New `diagnose_perception` (percept_doctor); `diagnose_robot` now also detects camera and point cloud topics. Run through the Docker image over MCP against a dark fake camera on the host: `IMAGE_DARK` with its hint. The tool count is now 12.
 - Docker image (ROS 2 Humble, nav2_doctor, armdoc, slam_doctor built in). Tested end to end over MCP stdio against a fake arm + MoveIt on the host: reads healthy. Needed a UDP-only Fast DDS profile (baked in): with the default shared memory the container discovered the robot but received no data.
 - Fix: depend on `mcp>=1.2,<2`. mcp 2.x renamed `FastMCP`, so a fresh `pip install` pulled a version the server could not import. Found by the Docker build; a test now imports the server and checks all 11 tools register.
