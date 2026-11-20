@@ -52,3 +52,29 @@ def test_domain_id_goes_to_the_environment():
         return SimpleNamespace(stdout="[]", stderr="", returncode=0)
     r = core.run("arm", domain_id=77, runner=runner)
     assert seen["ROS_DOMAIN_ID"] == "77" and r["domain_id"] == "77"
+
+
+def test_graph_lists_nodes_and_topics_and_hints_when_empty():
+    def runner(args, **k):
+        out = "/a\n/b\n" if args[1] == "node" else "/tf [tf2_msgs/msg/TFMessage]\n"
+        return SimpleNamespace(stdout=out, stderr="", returncode=0)
+    g = core.graph(domain_id=5, runner=runner)
+    assert g["nodes"] == ["/a", "/b"] and g["topics"] == ["/tf [tf2_msgs/msg/TFMessage]"] and g["hint"] is None
+    empty = core.graph(runner=lambda *a, **k: SimpleNamespace(stdout="", stderr="", returncode=0))
+    assert "ROS_DOMAIN_ID" in empty["hint"]
+    only_defaults = core.graph(runner=lambda a, **k: SimpleNamespace(stdout="/rosout [x]\n" if a[1] == "topic" else "", stderr="", returncode=0))
+    assert only_defaults["hint"]
+
+
+def test_analyze_trajectory_reports_missing_file_and_normalises(tmp_path):
+    assert "no such file" in core.analyze_trajectory(str(tmp_path / "nope.csv"))["error"]
+    f = tmp_path / "t.csv"
+    f.write_text("t,j1\n0,0\n")
+
+    def runner(args, **k):
+        out = args[args.index("--json") + 1]
+        json.dump({"samples": 3, "duration_s": 1.0, "findings": [
+            {"level": "WARN", "code": "JERK_SPIKE", "message": "m", "hint": "h"}]}, open(out, "w"))
+        return SimpleNamespace(stdout="", stderr="", returncode=0)
+    r = core.analyze_trajectory(str(f), urdf="u.urdf", runner=runner)
+    assert r["ok"] is True and r["findings"][0]["msg"] == "m" and r["metrics"] == {"samples": 3, "duration_s": 1.0}

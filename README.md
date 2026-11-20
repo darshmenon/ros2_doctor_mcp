@@ -13,6 +13,8 @@ It wraps two existing read-only doctors and returns one normalised result, `{ok,
 | `nav2_ready` | `nav2_doctor --ready` | pre-flight: can this stack navigate right now? |
 | `diagnose_arm` | [armdoc](https://github.com/darshmenon/armdoc) | inactive controller, silent `/joint_states`, joint at a limit, stalled trajectory, missing `move_group` |
 | `arm_ready` | `armdoc --ready` | pre-flight for a ros2_control arm |
+| `ros_graph` | `ros2 node list`, `ros2 topic list -t` | what is visible on a domain; start here when a doctor says nothing is visible |
+| `analyze_trajectory` | [trajlens](https://github.com/darshmenon/trajlens) | offline: jerk spikes, limit violations, slow profiles in a recorded trajectory (CSV, JSON, rosbag2); no robot needed |
 
 Every tool takes `ns` (namespace), `seconds` (watch time, clamped to 1 to 120) and `domain_id` (sets `ROS_DOMAIN_ID` for that call only). Each finding carries a `hint` with a suggested next step.
 
@@ -67,7 +69,8 @@ The unit tests stub the subprocess, so they need neither ROS nor a robot. The to
 
 ## Roadmap
 
-- forcetrace, trajlens, reachlens and nav_explore_eval as extra tools
+- forcetrace, reachlens and nav_explore_eval as extra tools
+- merged node logs tied to a finding
 - multi-robot: one call per namespace
 - a PyPI release
 

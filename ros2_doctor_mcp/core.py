@@ -66,3 +66,54 @@ def run(kind, ns="", seconds=8.0, ready=False, moveit=False, domain_id=None, run
                 "stderr": p.stderr[-500:]}
     res["domain_id"] = env.get("ROS_DOMAIN_ID")
     return res
+
+
+# ---------- read-only graph listing ----------
+def _run_text(args, env, runner, timeout=25):
+    p = runner(args, capture_output=True, text=True, env=env, timeout=timeout)
+    return [ln.strip() for ln in p.stdout.splitlines() if ln.strip()]
+
+
+def graph(domain_id=None, runner=subprocess.run):
+    """Nodes and topics visible on a ROS domain. Use it when a doctor says nothing is visible."""
+    env = dict(os.environ)
+    if domain_id is not None:
+        env["ROS_DOMAIN_ID"] = str(int(domain_id))
+    try:
+        nodes = _run_text(["ros2", "node", "list"], env, runner)
+        topics = _run_text(["ros2", "topic", "list", "-t"], env, runner)
+    except FileNotFoundError:
+        return {"error": "ros2 not found: source your ROS 2 install first"}
+    except subprocess.TimeoutExpired:
+        return {"error": "ros2 did not answer in time"}
+    return {"domain_id": env.get("ROS_DOMAIN_ID"), "nodes": nodes, "topics": topics,
+            "hint": None if nodes else "no nodes visible: check ROS_DOMAIN_ID, ROS_LOCALHOST_ONLY and the RMW"}
+
+
+# ---------- offline trajectory analysis (trajlens) ----------
+def analyze_trajectory(path, urdf=None, rate=None, runner=subprocess.run):
+    """Quality findings for a recorded joint trajectory file (CSV, JSON, rosbag2). Offline, reads only."""
+    if not os.path.exists(path):
+        return {"ok": None, "error": f"no such file: {path}"}
+    import tempfile
+    base = shlex.split(os.environ["ROS2_DOCTOR_TRAJLENS_CMD"]) if os.environ.get("ROS2_DOCTOR_TRAJLENS_CMD") \
+        else (["trajlens"] if shutil.which("trajlens") else ["python3", "-m", "trajlens"])
+    with tempfile.TemporaryDirectory() as d:
+        out = os.path.join(d, "r.json")
+        args = base + ["analyze", path, "--json", out]
+        if urdf:
+            args += ["--urdf", urdf]
+        if rate:
+            args += ["--rate", str(float(rate))]
+        try:
+            runner(args, capture_output=True, text=True, timeout=120)
+            doc = json.load(open(out))
+        except (FileNotFoundError, ValueError, OSError):
+            return {"ok": None, "error": "trajlens failed or is not installed (pip install trajlens)"}
+        except subprocess.TimeoutExpired:
+            return {"ok": None, "error": "trajlens did not finish in time"}
+    findings = [{"level": f.get("level"), "code": f.get("code"), "msg": f.get("message"), "hint": f.get("hint")}
+                for f in doc.get("findings", [])]
+    keep = ("samples", "duration_s", "moving_time_s", "path_length_rad", "max_speed")
+    return {"ok": not any(f["level"] == "ERROR" for f in findings), "findings": findings,
+            "metrics": {k: doc[k] for k in keep if k in doc}}

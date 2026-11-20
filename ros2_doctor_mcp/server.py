@@ -32,6 +32,20 @@ def arm_ready(ns: str = "", moveit: bool = False, seconds: float = 10.0, domain_
     return core.run("arm", ns=ns, moveit=moveit, seconds=seconds, ready=True, domain_id=domain_id)
 
 
+@mcp.tool()
+def ros_graph(domain_id: int | None = None) -> dict:
+    """List the nodes and topics visible on a ROS domain (read-only). Use it first when a doctor reports
+    that nothing is visible, to find the right domain or namespace."""
+    return core.graph(domain_id=domain_id)
+
+
+@mcp.tool()
+def analyze_trajectory(path: str, urdf: str | None = None, rate: float | None = None) -> dict:
+    """Offline quality check of a recorded joint trajectory (CSV, JSON or rosbag2) with trajlens: jerk spikes,
+    limit violations, slow profiles, gaps. Needs no running robot. urdf adds joint limits."""
+    return core.analyze_trajectory(path, urdf=urdf, rate=rate)
+
+
 def main():
     mcp.run()
 
