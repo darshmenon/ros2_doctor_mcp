@@ -7,6 +7,14 @@ mcp = FastMCP("ros2-doctor")
 
 
 @mcp.tool()
+def diagnose_robot(ns: str = "", seconds: float = 8.0, domain_id: int | None = None) -> dict:
+    """Start here. Looks at the ROS graph, detects which stacks are present (Nav2, a ros2_control or MoveIt
+    arm, SLAM), runs every doctor that applies in parallel and returns one merged verdict, errors first, each
+    finding tagged with its source. Good for mobile manipulators. Read-only."""
+    return core.diagnose_all(ns=ns, seconds=seconds, domain_id=domain_id)
+
+
+@mcp.tool()
 def diagnose_nav2(ns: str = "", seconds: float = 8.0, domain_id: int | None = None) -> dict:
     """Watch a running Nav2 stack and name why the robot is not moving (stale TF, dead odom/scan,
     inactive lifecycle nodes, no cmd_vel, flapping goals ...). Read-only. Returns ok and findings with hints."""

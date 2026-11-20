@@ -199,3 +199,47 @@ def score_map(map_yaml, truth_yaml, align=False, runner=subprocess.run):
     except (FileNotFoundError, ValueError, subprocess.TimeoutExpired):
         return {"ok": None, "error": "nav_explore_eval failed or is not installed"}
     return {"ok": True, "metrics": doc}
+
+
+# ---------- combined: detect the stacks on a domain and run every doctor that applies ----------
+def detect(nodes):
+    """Which doctors apply, from the node names on the graph."""
+    low = [n.lower() for n in nodes]
+    has = lambda *keys: any(k in n for n in low for k in keys)   # noqa: E731
+    return {"nav2": has("controller_server", "bt_navigator", "planner_server"),
+            "arm": has("controller_manager"),
+            "slam": has("slam_toolbox", "cartographer", "rtabmap", "orb_slam"),
+            "moveit": has("move_group")}
+
+
+def diagnose_all(ns="", seconds=8.0, domain_id=None, runner=subprocess.run):
+    """Run nav2_doctor, armdoc and slam_doctor on whatever is present and merge the findings."""
+    from concurrent.futures import ThreadPoolExecutor
+    g = graph(domain_id=domain_id, runner=runner)
+    if "error" in g:
+        return {"ok": None, "error": g["error"]}
+    found = detect(g["nodes"])
+    kinds = [k for k in ("nav2", "arm", "slam") if found[k]]
+    if not kinds:
+        return {"ok": None, "stacks": [], "nodes_seen": len(g["nodes"]),
+                "error": "no Nav2, ros2_control arm or SLAM nodes found on this domain; "
+                         "check domain_id and ROS_LOCALHOST_ONLY (ros_graph lists what is visible)"}
+
+    def one(kind):
+        return kind, run(kind, ns=ns, seconds=seconds, moveit=found["moveit"], domain_id=domain_id, runner=runner)
+    with ThreadPoolExecutor(max_workers=len(kinds)) as ex:
+        results = dict(ex.map(one, kinds))
+    findings, errors = [], {}
+    for kind, r in results.items():
+        if r.get("ok") is None:
+            errors[kind] = r.get("error", "failed")
+            continue
+        findings += [dict(f, source=kind) for f in r["findings"]]
+    findings.sort(key=lambda f: LEVEL_RANK.get(f["level"], 9))
+    n_err = sum(f["level"] == "ERROR" for f in findings)
+    n_warn = sum(f["level"] == "WARN" for f in findings)
+    ok = None if errors and not findings else (n_err == 0 and not errors)
+    return {"ok": ok, "stacks": kinds + (["moveit"] if found["moveit"] else []),
+            "summary": f"{n_err} error(s), {n_warn} warning(s) across {', '.join(kinds)}"
+                       + (f"; could not run: {', '.join(errors)}" if errors else ""),
+            "findings": findings, "could_not_run": errors, "domain_id": g.get("domain_id")}

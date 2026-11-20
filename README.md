@@ -9,6 +9,7 @@ It wraps existing read-only doctors and returns one normalised result, `{ok, fin
 
 | Tool | Wraps | Answers |
 |---|---|---|
+| `diagnose_robot` | all of the below | **start here**: detects which stacks are on the domain (Nav2, an arm, MoveIt, SLAM), runs every doctor that applies in parallel, returns one merged verdict, errors first, each finding tagged with its source |
 | `diagnose_nav2` | [nav2_doctor](https://github.com/darshmenon/nav2_doctor) | stale TF, dead odom or scan, inactive Nav2 servers, no `cmd_vel`, flapping goals, no progress |
 | `nav2_ready` | `nav2_doctor --ready` | pre-flight: can this stack navigate right now? |
 | `diagnose_arm` | [armdoc](https://github.com/darshmenon/armdoc) | inactive controller, silent `/joint_states`, joint at a limit, stalled trajectory, missing `move_group` |
@@ -46,7 +47,7 @@ or in `.mcp.json`:
 {"mcpServers": {"ros2-doctor": {"command": "ros2-doctor-mcp"}}}
 ```
 
-Then ask: *"Nav2 is running on domain 77 but the robot won't move. Why?"*
+Then ask: *"The robot on domain 77 won't move. Why?"* and the agent calls `diagnose_robot`.
 
 ## Configuration
 

@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- New `diagnose_robot`: lists the graph, detects Nav2, ros2_control arm, MoveIt and SLAM, runs each applicable doctor in parallel and merges the findings (errors first, tagged by source). Run through MCP on a live UR3 + MoveIt Gazebo sim: healthy reads healthy (stacks arm, moveit); with the arm controller deactivated it returns `CTRL_INACTIVE` and `NO_ACTIVE_ARM_CTRL`. Only the arm path was run live; the Nav2 and SLAM branches of the combined tool are unit-tested.
+- Live check of `--moveit` on that sim: `MOVEIT_CTRL_MISMATCH` fired for a wrong controller name set on move_group and cleared when restored.
 - New `check_reach` (reachlens; run through MCP on a UR3 pose) and `score_map` (nav_explore_eval; run through MCP on a map scored against itself, 100% as expected).
 - New `diagnose_slam` (slam_doctor) and `analyze_force` (forcetrace; `analyze_force` run through MCP on a bundled Gazebo UR3 peg run). Findings are sorted errors first.
 - `diagnose_arm` and `arm_ready` run through MCP on a live UR3 Gazebo sim: healthy reads healthy (no false positives); with the arm controller deactivated they return `CTRL_INACTIVE` and `NO_ACTIVE_ARM_CTRL`. That run exposed a noise bug in armdoc, now fixed there.
