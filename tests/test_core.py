@@ -78,3 +78,29 @@ def test_analyze_trajectory_reports_missing_file_and_normalises(tmp_path):
         return SimpleNamespace(stdout="", stderr="", returncode=0)
     r = core.analyze_trajectory(str(f), urdf="u.urdf", runner=runner)
     assert r["ok"] is True and r["findings"][0]["msg"] == "m" and r["metrics"] == {"samples": 3, "duration_s": 1.0}
+
+
+def test_slam_command_and_flags(monkeypatch):
+    monkeypatch.setenv("ROS2_DOCTOR_SLAM_CMD", "slam_doctor")
+    a = core.build_args("slam", ns="robot1", seconds=5)
+    assert a[:3] == ["slam_doctor", "--ns", "robot1"] and "--once" in a and "--moveit" not in a
+
+
+def test_analyze_force_flags_a_jam_and_normalises(tmp_path):
+    assert "no such file" in core.analyze_force(str(tmp_path / "x.csv"))["error"]
+    f = tmp_path / "r.csv"
+    f.write_text("t,Fz\n0,0\n")
+
+    def runner(args, **k):
+        json.dump({"samples": 9, "jammed": True, "jam_t": 3.5, "inserted": False, "peak_force_n": 22.0, "extra": 1},
+                  open(args[args.index("--json") + 1], "w"))
+        return SimpleNamespace(stdout="", stderr="", returncode=0)
+    r = core.analyze_force(str(f), cols="t=t,f_axial=Fz", runner=runner)
+    assert r["ok"] is False and {x["code"] for x in r["findings"]} == {"JAMMED", "NOT_INSERTED"}
+    assert r["metrics"]["peak_force_n"] == 22.0 and "extra" not in r["metrics"]
+
+
+def test_errors_come_first():
+    doc = [{"level": "WARN", "code": "A", "msg": ""}, {"level": "ERROR", "code": "B", "msg": ""},
+           {"level": "WARN", "code": "C", "msg": ""}]
+    assert [f["code"] for f in core.parse("arm", json.dumps(doc))["findings"]] == ["B", "A", "C"]

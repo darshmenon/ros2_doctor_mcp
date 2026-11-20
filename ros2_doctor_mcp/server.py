@@ -33,6 +33,20 @@ def arm_ready(ns: str = "", moveit: bool = False, seconds: float = 10.0, domain_
 
 
 @mcp.tool()
+def diagnose_slam(ns: str = "", seconds: float = 8.0, domain_id: int | None = None) -> dict:
+    """Watch a running SLAM (slam_toolbox, Cartographer, RTAB-Map, ORB-SLAM3) and report map stalls, lost
+    tracking, odometry drift and missing loop closures. Read-only. Uses slam_doctor."""
+    return core.run("slam", ns=ns, seconds=seconds, domain_id=domain_id)
+
+
+@mcp.tool()
+def analyze_force(path: str, cols: str | None = None) -> dict:
+    """Offline verdict on a recorded contact-force run (peg-in-hole, press, push; CSV): jammed or not, inserted
+    or not, peak and steady force, time in contact. Needs no robot. cols maps CSV columns, e.g. t=time,f_axial=Fz."""
+    return core.analyze_force(path, cols=cols)
+
+
+@mcp.tool()
 def ros_graph(domain_id: int | None = None) -> dict:
     """List the nodes and topics visible on a ROS domain (read-only). Use it first when a doctor reports
     that nothing is visible, to find the right domain or namespace."""

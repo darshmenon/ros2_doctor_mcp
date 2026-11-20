@@ -8,8 +8,10 @@ import subprocess
 DEFAULT_CMDS = {
     "nav2": ("ROS2_DOCTOR_NAV2_CMD", "nav2_doctor", ["ros2", "run", "nav2_doctor", "nav2_doctor"]),
     "arm": ("ROS2_DOCTOR_ARM_CMD", "armdoc", ["ros2", "run", "armdoc", "armdoc"]),
+    "slam": ("ROS2_DOCTOR_SLAM_CMD", "slam_doctor", ["ros2", "run", "slam_doctor", "slam_doctor"]),
 }
 MAX_SECONDS = 120.0
+LEVEL_RANK = {"ERROR": 0, "WARN": 1, "INFO": 2, "OK": 3}
 
 
 def base_cmd(kind):
@@ -46,6 +48,7 @@ def parse(kind, stdout):
     findings = doc["findings"] if isinstance(doc, dict) else doc
     out = [{"level": f.get("level"), "code": f.get("code"), "msg": f.get("msg"), "hint": f.get("hint")}
            for f in findings]
+    out.sort(key=lambda f: LEVEL_RANK.get(f["level"], 9))   # causes (errors) before noise
     return {"ok": not any(f["level"] == "ERROR" for f in out), "findings": out}
 
 
@@ -117,3 +120,36 @@ def analyze_trajectory(path, urdf=None, rate=None, runner=subprocess.run):
     keep = ("samples", "duration_s", "moving_time_s", "path_length_rad", "max_speed")
     return {"ok": not any(f["level"] == "ERROR" for f in findings), "findings": findings,
             "metrics": {k: doc[k] for k in keep if k in doc}}
+
+
+# ---------- offline contact-force analysis (forcetrace) ----------
+FORCE_KEYS = ("samples", "duration_s", "peak_force_n", "peak_axial_n", "peak_lateral_n", "time_in_contact_s",
+              "impulse_ns", "first_contact_t", "inserted", "time_to_insert_s", "jammed", "jam_t",
+              "steady_force_n", "overshoot_pct", "settling_time_s")
+
+
+def analyze_force(path, cols=None, runner=subprocess.run):
+    """Contact-force verdict for a recorded peg-in-hole / press / push run (CSV). Offline, reads only."""
+    if not os.path.exists(path):
+        return {"ok": None, "error": f"no such file: {path}"}
+    import tempfile
+    base = shlex.split(os.environ["ROS2_DOCTOR_FORCETRACE_CMD"]) if os.environ.get("ROS2_DOCTOR_FORCETRACE_CMD") \
+        else (["forcetrace"] if shutil.which("forcetrace") else ["python3", "-m", "forcetrace"])
+    with tempfile.TemporaryDirectory() as d:
+        out = os.path.join(d, "r.json")
+        args = base + ["analyze", path, "--json", out] + (["--cols", cols] if cols else [])
+        try:
+            runner(args, capture_output=True, text=True, timeout=120)
+            doc = json.load(open(out))
+        except (FileNotFoundError, ValueError, OSError):
+            return {"ok": None, "error": "forcetrace failed or is not installed (pip install forcetrace)"}
+        except subprocess.TimeoutExpired:
+            return {"ok": None, "error": "forcetrace did not finish in time"}
+    findings = []
+    if doc.get("jammed"):
+        findings.append({"level": "ERROR", "code": "JAMMED", "hint": "reduce lateral force or add a search pattern (spiral)",
+                         "msg": f"the run jammed at t={doc.get('jam_t')}s"})
+    if doc.get("inserted") is False:
+        findings.append({"level": "WARN", "code": "NOT_INSERTED", "hint": "check the alignment offset and insertion depth",
+                         "msg": "the peg never reached the insertion depth"})
+    return {"ok": not doc.get("jammed"), "findings": findings, "metrics": {k: doc[k] for k in FORCE_KEYS if k in doc}}

@@ -5,7 +5,7 @@
 
 An MCP server that answers **"why isn't my robot moving?"** for ROS 2. Most ROS MCP servers *control* a robot (publish, call services, send goals). This one only *diagnoses*: it is read-only, never publishes, and never changes anything, so it is safe to point an agent at a running robot.
 
-It wraps two existing read-only doctors and returns one normalised result, `{ok, findings: [{level, code, msg, hint}]}`:
+It wraps existing read-only doctors and returns one normalised result, `{ok, findings: [{level, code, msg, hint}]}`:
 
 | Tool | Wraps | Answers |
 |---|---|---|
@@ -13,6 +13,8 @@ It wraps two existing read-only doctors and returns one normalised result, `{ok,
 | `nav2_ready` | `nav2_doctor --ready` | pre-flight: can this stack navigate right now? |
 | `diagnose_arm` | [armdoc](https://github.com/darshmenon/armdoc) | inactive controller, silent `/joint_states`, joint at a limit, stalled trajectory, missing `move_group` |
 | `arm_ready` | `armdoc --ready` | pre-flight for a ros2_control arm |
+| `diagnose_slam` | [slam_doctor](https://github.com/darshmenon/slam_doctor) | SLAM health: map stalls, lost tracking, odometry drift, no loop closures (slam_toolbox, Cartographer, RTAB-Map, ORB-SLAM3) |
+| `analyze_force` | [forcetrace](https://github.com/darshmenon/forcetrace) | offline: did a peg-in-hole or press run jam or insert, peak and steady force, time in contact |
 | `ros_graph` | `ros2 node list`, `ros2 topic list -t` | what is visible on a domain; start here when a doctor says nothing is visible |
 | `analyze_trajectory` | [trajlens](https://github.com/darshmenon/trajlens) | offline: jerk spikes, limit violations, slow profiles in a recorded trajectory (CSV, JSON, rosbag2); no robot needed |
 
@@ -65,11 +67,11 @@ ROS2_DOCTOR_ARM_CMD="ros2 run armdoc armdoc"
 pip install ".[test]" && pytest -q
 ```
 
-The unit tests stub the subprocess, so they need neither ROS nor a robot. The tool path was also run end to end through the MCP protocol against a live Nav2 Gazebo sim (see the changelog); the arm tools have only been unit-tested through MCP so far.
+The unit tests stub the subprocess, so they need neither ROS nor a robot. The Nav2 and arm tools were also run end to end through the MCP protocol against live Gazebo sims (see the changelog).
 
 ## Roadmap
 
-- forcetrace, reachlens and nav_explore_eval as extra tools
+- reachlens and nav_explore_eval as extra tools
 - merged node logs tied to a finding
 - multi-robot: one call per namespace
 - a PyPI release
